@@ -74,6 +74,8 @@ def _coerce_boolean_value(value: Any) -> Any:
         return value
     if isinstance(value, str):
         lowered = value.strip().lower()
+        if not lowered:
+            return None
         if lowered in {"true", "1", "yes"}:
             return True
         if lowered in {"false", "0", "no"}:
@@ -84,7 +86,7 @@ def _coerce_boolean_value(value: Any) -> Any:
 def coerce_custom_field_value(value: Any, field_type: Optional[str]) -> Any:
     """Coerce a value to the type expected by a CallHub custom field definition."""
     normalized_type = (field_type or "text").lower()
-    if value is None:
+    if value is None or value == "":
         return None
     if normalized_type == "number":
         return _coerce_number_value(value)

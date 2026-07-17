@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from target_callhub.client import _CallHubCache
 from target_callhub.contact_lookup import ContactLookupMixin
-from target_callhub.custom_fields import custom_field_values_by_name
+from target_callhub.custom_fields import coerce_custom_field_value, custom_field_values_by_name
 from target_callhub.unified_mapping import (
+    build_contact_payload,
     contact_lookup_value,
+    normalize_phones,
     unified_lookup_value,
     values_match,
 )
@@ -91,3 +93,36 @@ def test_custom_field_values_by_name_parses_blob() -> None:
     assert custom_field_values_by_name(contact, definitions) == {
         "hg_text_field": "keep-me",
     }
+
+
+def test_id_lookup_uses_cache_without_api_fetch() -> None:
+    sink = _LookupSink()
+    sink._cache.contacts_loaded = True
+    sink._cache.contacts_by_id["99"] = {"id": "99", "email": "user@example.com"}
+
+    assert sink._lookup_by_field({"id": "external-source-id"}, "id") is None
+    assert sink._lookup_by_field({"id": "99"}, "id")["id"] == "99"
+
+
+def test_native_callhub_fields_not_treated_as_custom() -> None:
+    _, custom_names = build_contact_payload(
+        {
+            "email": "user@example.com",
+            "company_website": "https://example.com",
+            "contact": "15551234567",
+            "city": "Portland",
+        },
+    )
+    assert "company_website" not in custom_names
+    assert "contact" not in custom_names
+    assert "city" not in custom_names
+
+
+def test_normalize_phones_mirrors_mobile_to_contact() -> None:
+    assert normalize_phones(None, "15551234567") == ("15551234567", "15551234567")
+    assert normalize_phones("15559876543", None) == ("15559876543", "15559876543")
+
+
+def test_coerce_boolean_blank_returns_none() -> None:
+    assert coerce_custom_field_value("", "boolean") is None
+    assert coerce_custom_field_value("  ", "boolean") is None

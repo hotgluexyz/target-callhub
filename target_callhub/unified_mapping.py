@@ -45,6 +45,21 @@ UNIFIED_RESERVED_FIELDS = {
     "lead_source",
     "photo_url",
     "status",
+    # CallHub-native contact payload keys (also set via unified mapping above).
+    "contact",
+    "mobile",
+    "company_website",
+    "job_title",
+    "address",
+    "street_address_line1",
+    "city",
+    "state",
+    "zipcode",
+    "country_code",
+    "line1",
+    "postal_code",
+    "postalCode",
+    "country",
 }
 
 # Address sub-fields: unified address dict key -> CallHub contact key.
@@ -92,9 +107,22 @@ def extract_phones(record: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]
     return contact_phone, mobile
 
 
+def normalize_phones(
+    contact_phone: Optional[str],
+    mobile: Optional[str],
+) -> Tuple[Optional[str], Optional[str]]:
+    """Mirror contact and mobile when only one phone value is present."""
+    if not mobile and contact_phone:
+        mobile = contact_phone
+    if not contact_phone and mobile:
+        contact_phone = mobile
+    return contact_phone, mobile
+
+
 def build_contact_payload(record: Dict[str, Any]) -> Tuple[Dict[str, Any], List[str]]:
     """Map a unified contact record to a CallHub contact payload."""
     contact_phone, mobile = extract_phones(record)
+    contact_phone, mobile = normalize_phones(contact_phone, mobile)
     payload: Dict[str, Any] = {
         "first_name": record.get("first_name"),
         "last_name": record.get("last_name"),

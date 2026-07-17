@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 from hotglue_etl_exceptions import InvalidPayloadError
 
 from target_callhub.client import CallHubSink
-from target_callhub.unified_mapping import build_contact_payload
+from target_callhub.unified_mapping import build_contact_payload, normalize_phones
 
 
 class ContactsSink(CallHubSink):
@@ -68,8 +68,11 @@ class ContactsSink(CallHubSink):
         only_upsert_empty_fields = bool(self.config.get("only_upsert_empty_fields"))
 
         if matching_contact:
-            payload["contact"] = payload.get("contact") or matching_contact.get("contact")
-            payload["mobile"] = payload.get("mobile") or matching_contact.get("mobile")
+            contact_phone = payload.get("contact") or matching_contact.get("contact")
+            mobile = payload.get("mobile") or matching_contact.get("mobile")
+            contact_phone, mobile = normalize_phones(contact_phone, mobile)
+            payload["contact"] = contact_phone
+            payload["mobile"] = mobile
             if only_upsert_empty_fields:
                 payload = self.merge_empty_fields(matching_contact, payload)
             matching_id = matching_contact.get("id")
