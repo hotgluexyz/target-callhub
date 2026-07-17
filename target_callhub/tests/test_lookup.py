@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from target_callhub.client import _CallHubCache
 from target_callhub.contact_lookup import ContactLookupMixin
+from target_callhub.custom_fields import custom_field_values_by_name
 from target_callhub.unified_mapping import (
     contact_lookup_value,
     unified_lookup_value,
@@ -78,3 +79,15 @@ def test_store_contact_in_cache_moves_email_index_on_change() -> None:
     assert "old@example.com" not in sink._cache.contacts_by_email
     assert len(sink._cache.contacts_by_email["new@example.com"]) == 1
     assert sink._cache.contacts_by_email["new@example.com"][0]["email"] == "new@example.com"
+
+
+def test_custom_field_values_by_name_parses_blob() -> None:
+    definitions = {
+        "hg_text_field": {"id": "42", "name": "hg_text_field", "field_type": "text"},
+        "hg_text_field".lower(): {"id": "42", "name": "hg_text_field", "field_type": "text"},
+    }
+    contact = {"custom_fields": '{"42": "keep-me"}'}
+
+    assert custom_field_values_by_name(contact, definitions) == {
+        "hg_text_field": "keep-me",
+    }

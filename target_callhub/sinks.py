@@ -124,7 +124,7 @@ class ContactsSink(CallHubSink):
             self._pending_tags = tags_to_apply
             self.resolve_tags(contact)
         if self._pending_lists:
-            self.resolve_phonebooks(contact)
+            self.resolve_phonebooks(contact, cached_before)
 
         state_dict["success"] = True
         if method == "PUT":
@@ -153,12 +153,18 @@ class ContactsSink(CallHubSink):
         if refreshed:
             contact.update(refreshed)
 
-    def resolve_phonebooks(self, contact: Dict[str, Any]) -> None:
+    def resolve_phonebooks(
+        self,
+        contact: Dict[str, Any],
+        cached_before: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """Add or remove phonebook membership based on parsed list entries."""
         contact_id = contact.get("id")
         if contact_id is None:
             return
         current_membership = self.parse_phonebook_ids(contact)
+        if cached_before:
+            current_membership |= self.parse_phonebook_ids(cached_before)
         for list_entry in self._pending_lists:
             if list_entry["subscription_status"] == "unsubscribed":
                 phonebook = self.get_phonebook(list_entry["name"])

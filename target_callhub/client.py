@@ -17,6 +17,7 @@ from target_callhub.contact_lookup import ContactLookupMixin
 from target_callhub.custom_fields import (
     coerce_custom_field_value,
     custom_field_definitions_by_name,
+    custom_field_values_by_name,
 )
 
 PHONEBOOK_URL_RE = re.compile(r"/phonebooks/(\d+)/?$")
@@ -259,9 +260,16 @@ class CallHubSink(ContactLookupMixin, HotglueSink):
         incoming: Dict[str, Any],
     ) -> Dict[str, Any]:
         """Keep existing non-empty values and fill only empty fields from incoming data."""
+        self.ensure_custom_fields_loaded()
+        existing_custom = custom_field_values_by_name(
+            existing,
+            self._cache.custom_fields_by_name,
+        )
         merged = dict(incoming)
         for key in incoming:
             existing_value = existing.get(key)
+            if existing_value in (None, "") and key in existing_custom:
+                existing_value = existing_custom[key]
             if existing_value not in (None, ""):
                 merged[key] = existing_value
         return merged

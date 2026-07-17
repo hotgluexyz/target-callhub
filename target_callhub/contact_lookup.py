@@ -159,10 +159,20 @@ class ContactLookupMixin:
                 self._warn_duplicate_lookup(str(value), matches)
             return self._pick_best_duplicate(matches, record)
 
+        matches: List[Dict[str, Any]] = []
         for contact in self._cache.contacts_by_id.values():
             if self._contact_matches_value(contact, field, value):
-                return contact
-        return None
+                matches.append(contact)
+        if not matches:
+            return None
+        if len(matches) > 1:
+            ids = [contact.get("id") for contact in matches]
+            self.logger.warning(
+                "Lookup matched multiple contacts for field '%s'; using best match. Other ids: %s",
+                field,
+                ids,
+            )
+        return self._pick_best_duplicate(matches, record)
 
     def _lookup_by_all_fields(
         self,
