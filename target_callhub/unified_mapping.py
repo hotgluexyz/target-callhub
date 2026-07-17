@@ -83,6 +83,9 @@ def callhub_field_name(unified_field: str) -> str:
     return UNIFIED_TO_CALLHUB.get(unified_field, unified_field)
 
 
+NON_DIALABLE_PHONE_TYPES = {"fax", "pager"}
+
+
 def extract_phones(record: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
     """Map unified phone_numbers to CallHub contact and mobile values."""
     contact_phone = None
@@ -94,6 +97,8 @@ def extract_phones(record: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]
         if not number:
             continue
         phone_type = str(phone.get("type") or "").lower()
+        if phone_type in NON_DIALABLE_PHONE_TYPES:
+            continue
         if phone_type in {"primary", "home", "work", "phone"} and not contact_phone:
             contact_phone = str(number)
         elif phone_type == "mobile" and not mobile:
@@ -127,11 +132,7 @@ def build_contact_payload(record: Dict[str, Any]) -> Tuple[Dict[str, Any], List[
         "first_name": record.get("first_name"),
         "last_name": record.get("last_name"),
         "email": record.get("email"),
-        "contact": contact_phone,
-        "mobile": mobile,
         "company_name": record.get("company_name"),
-        "company_website": record.get("website"),
-        "job_title": record.get("title"),
     }
 
     address = _first_address(record)
@@ -143,6 +144,22 @@ def build_contact_payload(record: Dict[str, Any]) -> Tuple[Dict[str, Any], List[
                 continue
             payload[callhub_key] = address.get(address_key)
         payload["zipcode"] = address.get("postal_code") or address.get("postalCode")
+
+    payload["contact"] = contact_phone or record.get("contact")
+    payload["mobile"] = mobile or record.get("mobile")
+    payload["company_website"] = record.get("website") or record.get("company_website")
+    payload["job_title"] = record.get("title") or record.get("job_title")
+    for callhub_key in ADDRESS_FIELD_TO_CALLHUB.values():
+        if payload.get(callhub_key) in (None, ""):
+            payload[callhub_key] = record.get(callhub_key)
+    if payload.get("address") in (None, ""):
+        payload["address"] = record.get("address") or record.get("line1")
+    if payload.get("street_address_line1") in (None, ""):
+        payload["street_address_line1"] = record.get("street_address_line1") or payload.get(
+            "address",
+        )
+    if payload.get("zipcode") in (None, ""):
+        payload["zipcode"] = record.get("zipcode") or record.get("postal_code")
 
     custom_field_names: List[str] = []
     for custom_field in record.get("custom_fields") or []:

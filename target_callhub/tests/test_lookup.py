@@ -8,6 +8,7 @@ from target_callhub.custom_fields import coerce_custom_field_value, custom_field
 from target_callhub.unified_mapping import (
     build_contact_payload,
     contact_lookup_value,
+    extract_phones,
     normalize_phones,
     unified_lookup_value,
     values_match,
@@ -105,7 +106,7 @@ def test_id_lookup_uses_cache_without_api_fetch() -> None:
 
 
 def test_native_callhub_fields_not_treated_as_custom() -> None:
-    _, custom_names = build_contact_payload(
+    payload, custom_names = build_contact_payload(
         {
             "email": "user@example.com",
             "company_website": "https://example.com",
@@ -116,6 +117,9 @@ def test_native_callhub_fields_not_treated_as_custom() -> None:
     assert "company_website" not in custom_names
     assert "contact" not in custom_names
     assert "city" not in custom_names
+    assert payload["company_website"] == "https://example.com"
+    assert payload["contact"] == "15551234567"
+    assert payload["city"] == "Portland"
 
 
 def test_normalize_phones_mirrors_mobile_to_contact() -> None:
@@ -126,3 +130,18 @@ def test_normalize_phones_mirrors_mobile_to_contact() -> None:
 def test_coerce_boolean_blank_returns_none() -> None:
     assert coerce_custom_field_value("", "boolean") is None
     assert coerce_custom_field_value("  ", "boolean") is None
+
+
+def test_extract_phones_skips_fax() -> None:
+    record = {
+        "phone_numbers": [
+            {"type": "fax", "number": "15551111111"},
+            {"type": "mobile", "number": "15552222222"},
+        ],
+    }
+    assert extract_phones(record) == ("15552222222", "15552222222")
+
+
+def test_coerce_boolean_unrecognized_string_unchanged() -> None:
+    assert coerce_custom_field_value("maybe", "boolean") == "maybe"
+    assert coerce_custom_field_value("off", "boolean") is False

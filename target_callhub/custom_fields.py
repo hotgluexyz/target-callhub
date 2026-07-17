@@ -78,9 +78,12 @@ def _coerce_boolean_value(value: Any) -> Any:
             return None
         if lowered in {"true", "1", "yes"}:
             return True
-        if lowered in {"false", "0", "no"}:
+        if lowered in {"false", "0", "no", "off", "n", "falsey"}:
             return False
-    return bool(value)
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return value
 
 
 def coerce_custom_field_value(value: Any, field_type: Optional[str]) -> Any:
