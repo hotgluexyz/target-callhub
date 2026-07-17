@@ -63,12 +63,6 @@ class ContactsSink(CallHubSink):
         self._pending_lists = self.parse_list_entries(record)
 
         payload, custom_field_names = build_contact_payload(record)
-        if not payload.get("contact"):
-            raise InvalidPayloadError(
-                "CallHub requires a phone number. Provide phone_numbers with at least one number.",
-            )
-
-        self.prepare_custom_field_payload(payload, custom_field_names)
 
         matching_contact = self.find_matching_contact(record)
         only_upsert_empty_fields = bool(self.config.get("only_upsert_empty_fields"))
@@ -81,12 +75,13 @@ class ContactsSink(CallHubSink):
             matching_id = matching_contact.get("id")
             if matching_id is not None:
                 payload["_callhub_id"] = matching_id
-        elif record.get("id"):
-            fetched = self._fetch_contact_by_id(str(record["id"]))
-            if fetched:
-                if only_upsert_empty_fields:
-                    payload = self.merge_empty_fields(fetched, payload)
-                payload["_callhub_id"] = fetched.get("id")
+
+        if not payload.get("contact"):
+            raise InvalidPayloadError(
+                "CallHub requires a phone number. Provide phone_numbers with at least one number.",
+            )
+
+        self.prepare_custom_field_payload(payload, custom_field_names)
 
         return self.clean_null_values(payload)
 
@@ -165,7 +160,12 @@ class ContactsSink(CallHubSink):
             return
         current_membership = self.parse_phonebook_ids(contact)
         for list_entry in self._pending_lists:
-            phonebook = self.get_or_create_phonebook(list_entry["name"])
+            if list_entry["subscription_status"] == "unsubscribed":
+                phonebook = self.get_phonebook(list_entry["name"])
+                if not phonebook:
+                    continue
+            else:
+                phonebook = self.get_or_create_phonebook(list_entry["name"])
             phonebook_id = phonebook.get("id")
             if phonebook_id is None:
                 continue

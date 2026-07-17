@@ -158,18 +158,16 @@ class CallHubSink(ContactLookupMixin, HotglueSink):
         if self._cache.custom_fields_loaded:
             return
         self.logger.info("Loading custom field definitions into cache")
-        response = self.request_api("GET", endpoint="v1/custom_fields/")
-        payload = response.json()
-        if isinstance(payload, list):
-            definitions = payload
-        elif isinstance(payload, dict):
-            definitions = payload.get("results", [])
-        else:
-            definitions = []
+        definitions = self._paginate("v1/custom_fields/")
         self._cache.custom_fields_by_name = custom_field_definitions_by_name(definitions)
         for name, definition in list(self._cache.custom_fields_by_name.items()):
             self._cache.custom_fields_by_name[name.lower()] = definition
         self._cache.custom_fields_loaded = True
+
+    def get_phonebook(self, name: str) -> Optional[Dict[str, Any]]:
+        """Return a phonebook by name without creating it."""
+        self.ensure_phonebooks_loaded()
+        return self._get_named_entity(self._cache.phonebooks_by_name, name)
 
     def get_or_create_phonebook(self, name: str) -> Dict[str, Any]:
         """Return a phonebook by name, creating it when missing."""
