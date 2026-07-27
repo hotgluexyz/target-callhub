@@ -105,21 +105,37 @@ def test_id_lookup_uses_cache_without_api_fetch() -> None:
     assert sink._lookup_by_field({"id": "99"}, "id")["id"] == "99"
 
 
-def test_native_callhub_fields_not_treated_as_custom() -> None:
+def test_custom_fields_routes_native_and_custom_names() -> None:
     payload, custom_names = build_contact_payload(
         {
             "email": "user@example.com",
-            "company_website": "https://example.com",
-            "contact": "15551234567",
-            "city": "Portland",
+            "phone_numbers": [{"type": "mobile", "number": "15551234567"}],
+            "custom_fields": [
+                {"name": "company_website", "value": "https://example.com"},
+                {"name": "middle_name", "value": "Alex"},
+                {"name": "hg_text_field", "value": "custom-value"},
+            ],
         },
     )
-    assert "company_website" not in custom_names
-    assert "contact" not in custom_names
-    assert "city" not in custom_names
     assert payload["company_website"] == "https://example.com"
-    assert payload["contact"] == "15551234567"
-    assert payload["city"] == "Portland"
+    assert payload["middle_name"] == "Alex"
+    assert payload["hg_text_field"] == "custom-value"
+    assert "company_website" not in custom_names
+    assert "middle_name" not in custom_names
+    assert custom_names == ["hg_text_field"]
+
+
+def test_top_level_extra_fields_are_ignored() -> None:
+    payload, custom_names = build_contact_payload(
+        {
+            "email": "user@example.com",
+            "hg_text_field": "ignored",
+            "company_website": "https://example.com",
+        },
+    )
+    assert "hg_text_field" not in payload
+    assert payload.get("company_website") != "https://example.com"
+    assert custom_names == []
 
 
 def test_normalize_phones_mirrors_mobile_to_contact() -> None:

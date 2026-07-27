@@ -10,57 +10,28 @@ UNIFIED_TO_CALLHUB: Dict[str, str] = {
     "title": "job_title",
 }
 
-# Unified fields handled explicitly or via side effects; not passed through as custom fields.
-UNIFIED_RESERVED_FIELDS = {
-    "id",
-    "name",
-    "email",
-    "first_name",
-    "middle_name",
-    "last_name",
-    "title",
-    "salutation",
-    "birthdate",
-    "website",
-    "description",
-    "company_id",
-    "company_name",
-    "owner_id",
-    "owner_email",
-    "owner_name",
-    "external_id",
-    "externalId",
-    "subscribe_status",
-    "subscription_status",
-    "unsubscribed",
-    "tags",
-    "lists",
-    "phone_numbers",
-    "addresses",
-    "custom_fields",
-    "created_at",
-    "updated_at",
-    "active",
-    "type",
-    "lead_source",
-    "photo_url",
-    "status",
-    # CallHub-native contact payload keys (also set via unified mapping above).
-    "contact",
-    "mobile",
-    "company_website",
-    "job_title",
-    "address",
-    "street_address_line1",
-    "city",
-    "state",
-    "zipcode",
-    "country_code",
-    "line1",
-    "postal_code",
-    "postalCode",
-    "country",
-}
+# Standard CallHub contact payload keys (not custom field definitions).
+CALLHUB_NATIVE_CONTACT_FIELDS = frozenset(
+    {
+        "first_name",
+        "last_name",
+        "middle_name",
+        "email",
+        "salutation",
+        "description",
+        "contact",
+        "mobile",
+        "company_name",
+        "company_website",
+        "job_title",
+        "address",
+        "street_address_line1",
+        "city",
+        "state",
+        "zipcode",
+        "country_code",
+    },
+)
 
 # Address sub-fields: unified address dict key -> CallHub contact key.
 ADDRESS_FIELD_TO_CALLHUB: Dict[str, str] = {
@@ -145,36 +116,21 @@ def build_contact_payload(record: Dict[str, Any]) -> Tuple[Dict[str, Any], List[
             payload[callhub_key] = address.get(address_key)
         payload["zipcode"] = address.get("postal_code") or address.get("postalCode")
 
-    payload["contact"] = contact_phone or record.get("contact")
-    payload["mobile"] = mobile or record.get("mobile")
-    payload["company_website"] = record.get("website") or record.get("company_website")
-    payload["job_title"] = record.get("title") or record.get("job_title")
-    for callhub_key in ADDRESS_FIELD_TO_CALLHUB.values():
-        if payload.get(callhub_key) in (None, ""):
-            payload[callhub_key] = record.get(callhub_key)
-    if payload.get("address") in (None, ""):
-        payload["address"] = record.get("address") or record.get("line1")
-    if payload.get("street_address_line1") in (None, ""):
-        payload["street_address_line1"] = record.get("street_address_line1") or payload.get(
-            "address",
-        )
-    if payload.get("zipcode") in (None, ""):
-        payload["zipcode"] = record.get("zipcode") or record.get("postal_code")
+    payload["contact"] = contact_phone
+    payload["mobile"] = mobile
+    payload["company_website"] = record.get("website")
+    payload["job_title"] = record.get("title")
 
     custom_field_names: List[str] = []
     for custom_field in record.get("custom_fields") or []:
         if not isinstance(custom_field, dict):
             continue
         field_name = custom_field.get("name")
-        if field_name:
-            payload[field_name] = custom_field.get("value")
-            custom_field_names.append(field_name)
-
-    for key, value in record.items():
-        if key in UNIFIED_RESERVED_FIELDS or value is None:
+        if not field_name:
             continue
-        payload[key] = value
-        custom_field_names.append(key)
+        payload[field_name] = custom_field.get("value")
+        if field_name not in CALLHUB_NATIVE_CONTACT_FIELDS:
+            custom_field_names.append(field_name)
 
     return payload, custom_field_names
 

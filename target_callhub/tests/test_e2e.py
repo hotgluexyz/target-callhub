@@ -259,7 +259,7 @@ def test_custom_field_value_written(config: dict, target_run: TargetRun) -> None
     matches = _find_contacts_by_email(config, UPSERT_EMAIL)
     contact = _get_contact(config, str(matches[0]["id"]))
     custom_fields = contact.get("custom_fields") or ""
-    assert "updated-value" in custom_fields or "from-unmapped-field" in custom_fields
+    assert "updated-value" in custom_fields
 
 
 def test_lookup_fields_email_upserts_without_duplicates(
