@@ -27,6 +27,19 @@ def _merge_cached_contact(
     return merged
 
 
+def contact_for_cache(
+    written: dict[str, Any],
+    response: dict[str, Any],
+) -> dict[str, Any]:
+    """Build a cache entry from the written payload overlaid by the API response."""
+    contact_id = response.get("id")
+    if contact_id is None:
+        return response
+    merged = dict(written)
+    merged["id"] = contact_id
+    return _merge_cached_contact(merged, response)
+
+
 class ContactLookupMixin:
     """Load contacts once per job and resolve upsert matches from the in-memory cache."""
 

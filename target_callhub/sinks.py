@@ -7,6 +7,7 @@ from typing import Any
 from hotglue_etl_exceptions import InvalidPayloadError
 
 from target_callhub.client import CallHubSink
+from target_callhub.contact_lookup import contact_for_cache
 from target_callhub.unified_mapping import build_contact_payload, normalize_phones
 
 
@@ -121,7 +122,7 @@ class ContactsSink(CallHubSink):
         response = self.request_api(method, endpoint=endpoint, request_data=record)
         contact = response.json()
         contact_id = contact.get("id")
-        self._store_contact_in_cache(contact)
+        self._store_contact_in_cache(contact_for_cache(record, contact))
 
         if tags_to_apply:
             self._pending_tags = tags_to_apply

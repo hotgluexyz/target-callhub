@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from target_callhub.client import _CallHubCache
-from target_callhub.contact_lookup import ContactLookupMixin
+from target_callhub.contact_lookup import ContactLookupMixin, contact_for_cache
 from target_callhub.custom_fields import coerce_custom_field_value, custom_field_values_by_name
 from target_callhub.unified_mapping import (
     build_contact_payload,
@@ -94,6 +94,35 @@ def test_store_contact_in_cache_preserves_fields_omitted_from_write_response() -
     assert cached["tags"] == [{"name": "vip"}]
     assert len(sink._cache.contacts_by_email["user@example.com"]) == 1
     assert sink._cache.contacts_by_email["user@example.com"][0]["first_name"] == "After"
+
+
+def test_contact_for_cache_includes_written_fields_on_create() -> None:
+    sink = _LookupSink()
+    written = {
+        "email": "user@example.com",
+        "first_name": "New",
+        "contact": "15551234567",
+    }
+    response = {"id": "99", "first_name": "New"}
+
+    sink._store_contact_in_cache(contact_for_cache(written, response))
+
+    cached = sink._cache.contacts_by_id["99"]
+    assert cached["email"] == "user@example.com"
+    assert cached["contact"] == "15551234567"
+    assert len(sink._cache.contacts_by_email["user@example.com"]) == 1
+
+
+def test_contact_for_cache_updates_email_from_written_payload() -> None:
+    sink = _LookupSink()
+    sink._store_contact_in_cache({"id": "1", "email": "old@example.com"})
+    written = {"email": "new@example.com", "first_name": "Updated"}
+    response = {"id": "1", "first_name": "Updated"}
+
+    sink._store_contact_in_cache(contact_for_cache(written, response))
+
+    assert "old@example.com" not in sink._cache.contacts_by_email
+    assert sink._cache.contacts_by_email["new@example.com"][0]["email"] == "new@example.com"
 
 
 def test_store_contact_in_cache_moves_email_index_on_change() -> None:
