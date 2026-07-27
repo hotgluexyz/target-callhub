@@ -70,6 +70,32 @@ def test_store_contact_in_cache_updates_email_index() -> None:
     assert sink._cache.contacts_by_email["user@example.com"][0]["first_name"] == "After"
 
 
+def test_store_contact_in_cache_preserves_fields_omitted_from_write_response() -> None:
+    sink = _LookupSink()
+    full = {
+        "id": "1",
+        "email": "user@example.com",
+        "first_name": "Before",
+        "phonebooks": ["/phonebooks/5/"],
+        "tags": [{"name": "vip"}],
+    }
+    partial = {
+        "id": "1",
+        "first_name": "After",
+    }
+
+    sink._store_contact_in_cache(full)
+    sink._store_contact_in_cache(partial)
+
+    cached = sink._cache.contacts_by_id["1"]
+    assert cached["first_name"] == "After"
+    assert cached["email"] == "user@example.com"
+    assert cached["phonebooks"] == ["/phonebooks/5/"]
+    assert cached["tags"] == [{"name": "vip"}]
+    assert len(sink._cache.contacts_by_email["user@example.com"]) == 1
+    assert sink._cache.contacts_by_email["user@example.com"][0]["first_name"] == "After"
+
+
 def test_store_contact_in_cache_moves_email_index_on_change() -> None:
     sink = _LookupSink()
     sink._store_contact_in_cache(

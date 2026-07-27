@@ -1,5 +1,7 @@
 """CallHub target class."""
 
+from typing import ClassVar
+
 from hotglue_singer_sdk import typing as th
 from hotglue_singer_sdk.helpers.capabilities import AlertingLevel
 from hotglue_singer_sdk.target_sdk.target import TargetHotglue
@@ -10,7 +12,7 @@ from target_callhub.sinks import ContactsSink
 class TargetCallhub(TargetHotglue):
     """Target for CallHub unified Contacts."""
 
-    SINK_TYPES = [
+    SINK_TYPES: ClassVar = [
         ContactsSink,
     ]
     name = "target-callhub"

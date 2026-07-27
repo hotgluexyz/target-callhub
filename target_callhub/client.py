@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 import requests
@@ -25,14 +25,14 @@ PHONEBOOK_URL_RE = re.compile(r"/phonebooks/(\d+)/?$")
 
 @dataclass
 class _CallHubCache:
-    contacts_by_id: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    contacts_by_email: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)
+    contacts_by_id: dict[str, dict[str, Any]] = field(default_factory=dict)
+    contacts_by_email: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     contacts_loaded: bool = False
-    phonebooks_by_name: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    phonebooks_by_name: dict[str, dict[str, Any]] = field(default_factory=dict)
     phonebooks_loaded: bool = False
-    tags_by_name: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    tags_by_name: dict[str, dict[str, Any]] = field(default_factory=dict)
     tags_loaded: bool = False
-    custom_fields_by_name: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    custom_fields_by_name: dict[str, dict[str, Any]] = field(default_factory=dict)
     custom_fields_loaded: bool = False
 
 
@@ -45,8 +45,8 @@ class CallHubSink(ContactLookupMixin, HotglueSink):
         self,
         target: PluginBase,
         stream_name: str,
-        schema: Dict,
-        key_properties: Optional[List[str]],
+        schema: dict,
+        key_properties: list[str] | None,
     ) -> None:
         super().__init__(target, stream_name, schema, key_properties)
         self._cache = _CallHubCache()
@@ -61,7 +61,7 @@ class CallHubSink(ContactLookupMixin, HotglueSink):
         return "v1/contacts/"
 
     @property
-    def default_headers(self) -> Dict[str, str]:
+    def default_headers(self) -> dict[str, str]:
         return {
             "Authorization": f"Token {self.config['api_token']}",
         }
@@ -78,9 +78,9 @@ class CallHubSink(ContactLookupMixin, HotglueSink):
             raise FatalAPIError(response.text or response.reason)
         super().validate_response(response)
 
-    def _paginate(self, path: str) -> List[Dict[str, Any]]:
+    def _paginate(self, path: str) -> list[dict[str, Any]]:
         """Fetch all pages from a CallHub list endpoint."""
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
         page = 1
         while page:
             response = self.request_api(
@@ -105,7 +105,7 @@ class CallHubSink(ContactLookupMixin, HotglueSink):
         return results
 
     @staticmethod
-    def _entity_name(entity: Dict[str, Any]) -> Optional[str]:
+    def _entity_name(entity: dict[str, Any]) -> str | None:
         """Return the display name for a tag, phonebook, or custom field definition."""
         name = entity.get("name")
         if name:
@@ -117,8 +117,8 @@ class CallHubSink(ContactLookupMixin, HotglueSink):
 
     @staticmethod
     def _register_named_entity(
-        cache: Dict[str, Dict[str, Any]],
-        entity: Dict[str, Any],
+        cache: dict[str, dict[str, Any]],
+        entity: dict[str, Any],
     ) -> None:
         """Store an entity under its display name and lowercase alias."""
         name = CallHubSink._entity_name(entity)
@@ -129,9 +129,9 @@ class CallHubSink(ContactLookupMixin, HotglueSink):
 
     @staticmethod
     def _get_named_entity(
-        cache: Dict[str, Dict[str, Any]],
+        cache: dict[str, dict[str, Any]],
         name: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Look up a cached entity by exact or case-insensitive name."""
         trimmed = name.strip()
         return cache.get(trimmed) or cache.get(trimmed.lower())
@@ -165,12 +165,12 @@ class CallHubSink(ContactLookupMixin, HotglueSink):
             self._cache.custom_fields_by_name[name.lower()] = definition
         self._cache.custom_fields_loaded = True
 
-    def get_phonebook(self, name: str) -> Optional[Dict[str, Any]]:
+    def get_phonebook(self, name: str) -> dict[str, Any] | None:
         """Return a phonebook by name without creating it."""
         self.ensure_phonebooks_loaded()
         return self._get_named_entity(self._cache.phonebooks_by_name, name)
 
-    def get_or_create_phonebook(self, name: str) -> Dict[str, Any]:
+    def get_or_create_phonebook(self, name: str) -> dict[str, Any]:
         """Return a phonebook by name, creating it when missing."""
         self.ensure_phonebooks_loaded()
         existing = self._get_named_entity(self._cache.phonebooks_by_name, name)
@@ -187,7 +187,7 @@ class CallHubSink(ContactLookupMixin, HotglueSink):
         self._register_named_entity(self._cache.phonebooks_by_name, phonebook)
         return phonebook
 
-    def get_or_create_tag(self, name: str) -> Dict[str, Any]:
+    def get_or_create_tag(self, name: str) -> dict[str, Any]:
         """Return a tag by name, creating it when missing."""
         self.ensure_tags_loaded()
         existing = self._get_named_entity(self._cache.tags_by_name, name)
@@ -204,7 +204,7 @@ class CallHubSink(ContactLookupMixin, HotglueSink):
         self._register_named_entity(self._cache.tags_by_name, tag)
         return tag
 
-    def ensure_custom_field(self, name: str, field_type: str = "text") -> Dict[str, Any]:
+    def ensure_custom_field(self, name: str, field_type: str = "text") -> dict[str, Any]:
         """Return a custom field definition by name, creating it when missing."""
         self.ensure_custom_fields_loaded()
         existing = self._get_named_entity(self._cache.custom_fields_by_name, name)
@@ -222,7 +222,7 @@ class CallHubSink(ContactLookupMixin, HotglueSink):
         return definition
 
     @staticmethod
-    def parse_phonebook_ids(contact: Dict[str, Any]) -> set[str]:
+    def parse_phonebook_ids(contact: dict[str, Any]) -> set[str]:
         """Extract phonebook ids from the contact payload."""
         ids: set[str] = set()
         for phonebook_ref in contact.get("phonebooks") or []:
@@ -239,7 +239,7 @@ class CallHubSink(ContactLookupMixin, HotglueSink):
         """Remove null and blank values while preserving non-empty nested structures."""
         if not isinstance(data, dict):
             return data
-        cleaned: Dict[str, Any] = {}
+        cleaned: dict[str, Any] = {}
         for key, value in data.items():
             if value is None:
                 continue
@@ -256,9 +256,9 @@ class CallHubSink(ContactLookupMixin, HotglueSink):
 
     def merge_empty_fields(
         self,
-        existing: Dict[str, Any],
-        incoming: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        existing: dict[str, Any],
+        incoming: dict[str, Any],
+    ) -> dict[str, Any]:
         """Keep existing non-empty values and fill only empty fields from incoming data."""
         self.ensure_custom_fields_loaded()
         existing_custom = custom_field_values_by_name(
@@ -284,8 +284,8 @@ class CallHubSink(ContactLookupMixin, HotglueSink):
 
     def prepare_custom_field_payload(
         self,
-        payload: Dict[str, Any],
-        field_names: List[str],
+        payload: dict[str, Any],
+        field_names: list[str],
     ) -> None:
         """Ensure custom fields exist and coerce payload values to their API types."""
         if not field_names:

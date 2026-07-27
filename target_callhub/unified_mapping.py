@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 # Unified field name -> CallHub contact payload key.
-UNIFIED_TO_CALLHUB: Dict[str, str] = {
+UNIFIED_TO_CALLHUB: dict[str, str] = {
     "website": "company_website",
     "title": "job_title",
 }
@@ -34,7 +34,7 @@ CALLHUB_NATIVE_CONTACT_FIELDS = frozenset(
 )
 
 # Address sub-fields: unified address dict key -> CallHub contact key.
-ADDRESS_FIELD_TO_CALLHUB: Dict[str, str] = {
+ADDRESS_FIELD_TO_CALLHUB: dict[str, str] = {
     "line1": "address",
     "city": "city",
     "state": "state",
@@ -57,7 +57,7 @@ def callhub_field_name(unified_field: str) -> str:
 NON_DIALABLE_PHONE_TYPES = {"fax", "pager"}
 
 
-def extract_phones(record: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+def extract_phones(record: dict[str, Any]) -> tuple[str | None, str | None]:
     """Map unified phone_numbers to CallHub contact and mobile values."""
     contact_phone = None
     mobile = None
@@ -84,9 +84,9 @@ def extract_phones(record: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]
 
 
 def normalize_phones(
-    contact_phone: Optional[str],
-    mobile: Optional[str],
-) -> Tuple[Optional[str], Optional[str]]:
+    contact_phone: str | None,
+    mobile: str | None,
+) -> tuple[str | None, str | None]:
     """Mirror contact and mobile when only one phone value is present."""
     if not mobile and contact_phone:
         mobile = contact_phone
@@ -95,11 +95,11 @@ def normalize_phones(
     return contact_phone, mobile
 
 
-def build_contact_payload(record: Dict[str, Any]) -> Tuple[Dict[str, Any], List[str]]:
+def build_contact_payload(record: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """Map a unified contact record to a CallHub contact payload."""
     contact_phone, mobile = extract_phones(record)
     contact_phone, mobile = normalize_phones(contact_phone, mobile)
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "first_name": record.get("first_name"),
         "last_name": record.get("last_name"),
         "email": record.get("email"),
@@ -121,7 +121,7 @@ def build_contact_payload(record: Dict[str, Any]) -> Tuple[Dict[str, Any], List[
     payload["company_website"] = record.get("website")
     payload["job_title"] = record.get("title")
 
-    custom_field_names: List[str] = []
+    custom_field_names: list[str] = []
     for custom_field in record.get("custom_fields") or []:
         if not isinstance(custom_field, dict):
             continue
@@ -135,14 +135,14 @@ def build_contact_payload(record: Dict[str, Any]) -> Tuple[Dict[str, Any], List[
     return payload, custom_field_names
 
 
-def _first_address(record: Dict[str, Any]) -> Dict[str, Any]:
+def _first_address(record: dict[str, Any]) -> dict[str, Any]:
     addresses = record.get("addresses") or []
     if addresses and isinstance(addresses[0], dict):
         return addresses[0]
     return {}
 
 
-def unified_lookup_value(record: Dict[str, Any], unified_field: str) -> Any:
+def unified_lookup_value(record: dict[str, Any], unified_field: str) -> Any:
     """Read a lookup value from a unified contact record."""
     if unified_field == "id":
         return record.get("id")
@@ -161,7 +161,7 @@ def unified_lookup_value(record: Dict[str, Any], unified_field: str) -> Any:
     return record.get(unified_field)
 
 
-def contact_lookup_value(contact: Dict[str, Any], unified_field: str) -> Any:
+def contact_lookup_value(contact: dict[str, Any], unified_field: str) -> Any:
     """Read a comparable lookup value from a cached CallHub contact."""
     if unified_field == "id":
         return contact.get("id")

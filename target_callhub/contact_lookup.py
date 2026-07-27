@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from hotglue_singer_sdk.exceptions import FatalAPIError
 
@@ -13,6 +13,18 @@ from target_callhub.unified_mapping import (
 )
 
 DEFAULT_LOOKUP_FIELDS = ["id", "email"]
+
+
+def _merge_cached_contact(
+    previous: dict[str, Any],
+    incoming: dict[str, Any],
+) -> dict[str, Any]:
+    """Overlay a partial API response onto a cached contact without dropping omitted fields."""
+    merged = dict(previous)
+    for key, value in incoming.items():
+        if value is not None:
+            merged[key] = value
+    return merged
 
 
 class ContactLookupMixin:
@@ -34,13 +46,15 @@ class ContactLookupMixin:
         self._cache.contacts_loaded = True
         self.logger.info("Loaded %s contacts into cache", len(self._cache.contacts_by_id))
 
-    def _store_contact_in_cache(self, contact: Dict[str, Any]) -> None:
+    def _store_contact_in_cache(self, contact: dict[str, Any]) -> None:
         """Update the in-memory contact indexes from a contact payload."""
         contact_id = contact.get("id")
         if contact_id is None:
             return
         contact_id_str = str(contact_id)
         previous = self._cache.contacts_by_id.get(contact_id_str)
+        if previous:
+            contact = _merge_cached_contact(previous, contact)
         self._cache.contacts_by_id[contact_id_str] = contact
 
         email = contact.get("email")
@@ -83,8 +97,8 @@ class ContactLookupMixin:
     def _warn_duplicate_lookup(
         self,
         email: str,
-        contacts: List[Dict[str, Any]],
-        chosen: Dict[str, Any],
+        contacts: list[dict[str, Any]],
+        chosen: dict[str, Any],
     ) -> None:
         """Warn when a lookup hits multiple contacts for the same email."""
         key = email.strip().lower()
@@ -99,7 +113,7 @@ class ContactLookupMixin:
         )
         self._duplicate_emails_logged.add(key)
 
-    def get_lookup_fields(self) -> List[str]:
+    def get_lookup_fields(self) -> list[str]:
         """Return configured lookup fields for this stream, defaulting to id then email."""
         lookup_config = self.config.get("lookup_fields") or {}
         fields = lookup_config.get(self.name) or lookup_config.get("Contacts")
@@ -111,9 +125,9 @@ class ContactLookupMixin:
 
     def _pick_best_duplicate(
         self,
-        contacts: List[Dict[str, Any]],
-        record: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        contacts: list[dict[str, Any]],
+        record: dict[str, Any],
+    ) -> dict[str, Any]:
         """Choose one contact when multiple records share a lookup value."""
         record_id = record.get("id")
         if record_id is not None:
@@ -127,12 +141,12 @@ class ContactLookupMixin:
         )
         return sorted_contacts[0]
 
-    def _record_field_value(self, record: Dict[str, Any], field: str) -> Any:
+    def _record_field_value(self, record: dict[str, Any], field: str) -> Any:
         return unified_lookup_value(record, field)
 
     def _contact_matches_value(
         self,
-        contact: Dict[str, Any],
+        contact: dict[str, Any],
         field: str,
         expected: Any,
     ) -> bool:
@@ -142,9 +156,9 @@ class ContactLookupMixin:
 
     def _lookup_by_field(
         self,
-        record: Dict[str, Any],
+        record: dict[str, Any],
         field: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Find a cached contact using a single lookup field."""
         value = self._record_field_value(record, field)
         if value in (None, ""):
@@ -162,7 +176,7 @@ class ContactLookupMixin:
                 self._warn_duplicate_lookup(str(value), matches, chosen)
             return chosen
 
-        matches: List[Dict[str, Any]] = []
+        matches: list[dict[str, Any]] = []
         for contact in self._cache.contacts_by_id.values():
             if self._contact_matches_value(contact, field, value):
                 matches.append(contact)
@@ -181,9 +195,9 @@ class ContactLookupMixin:
 
     def _lookup_by_all_fields(
         self,
-        record: Dict[str, Any],
-        fields: List[str],
-    ) -> Optional[Dict[str, Any]]:
+        record: dict[str, Any],
+        fields: list[str],
+    ) -> dict[str, Any] | None:
         """Find a cached contact that matches every configured lookup field."""
         for field in fields:
             if self._record_field_value(record, field) in (None, ""):
@@ -216,7 +230,7 @@ class ContactLookupMixin:
             return chosen
         return self._pick_best_duplicate(candidates, record)
 
-    def find_matching_contact(self, record: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def find_matching_contact(self, record: dict[str, Any]) -> dict[str, Any] | None:
         """Resolve an existing contact from the cache using configured lookup fields."""
         self.ensure_contacts_loaded()
         fields = self.get_lookup_fields()
@@ -236,7 +250,7 @@ class ContactLookupMixin:
                 return match
         return None
 
-    def _fetch_contact_by_id(self, contact_id: str) -> Optional[Dict[str, Any]]:
+    def _fetch_contact_by_id(self, contact_id: str) -> dict[str, Any] | None:
         """Fetch a contact by id when it is missing from the cache."""
         try:
             response = self.request_api("GET", endpoint=f"v1/contacts/{contact_id}/")

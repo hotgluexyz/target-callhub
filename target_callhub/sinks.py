@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from hotglue_etl_exceptions import InvalidPayloadError
 
@@ -17,11 +17,11 @@ class ContactsSink(CallHubSink):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self._pending_tags: List[str] = []
-        self._pending_lists: List[Dict[str, str]] = []
+        self._pending_tags: list[str] = []
+        self._pending_lists: list[dict[str, str]] = []
 
     @staticmethod
-    def _normalize_subscription_status(status: Optional[str]) -> str:
+    def _normalize_subscription_status(status: str | None) -> str:
         if not status:
             return "subscribed"
         normalized = str(status).strip().lower()
@@ -29,9 +29,9 @@ class ContactsSink(CallHubSink):
             return "unsubscribed"
         return "subscribed"
 
-    def parse_list_entries(self, record: Dict[str, Any]) -> List[Dict[str, str]]:
+    def parse_list_entries(self, record: dict[str, Any]) -> list[dict[str, str]]:
         """Normalize unified lists into phonebook actions with subscription status."""
-        entries: List[Dict[str, str]] = []
+        entries: list[dict[str, str]] = []
         default_status = self._normalize_subscription_status(record.get("subscribe_status"))
         for item in record.get("lists") or []:
             if isinstance(item, str):
@@ -53,7 +53,7 @@ class ContactsSink(CallHubSink):
                 )
         return entries
 
-    def preprocess_record(self, record: Dict[str, Any], context: dict) -> dict:
+    def preprocess_record(self, record: dict[str, Any], context: dict) -> dict:
         """Map, lookup, and merge a unified record before writing to CallHub."""
         self._pending_tags = [
             str(tag).strip()
@@ -90,9 +90,9 @@ class ContactsSink(CallHubSink):
 
     @staticmethod
     def _collect_tags_to_apply(
-        cached_contact: Dict[str, Any],
-        pending_tags: List[str],
-    ) -> List[str]:
+        cached_contact: dict[str, Any],
+        pending_tags: list[str],
+    ) -> list[str]:
         """Merge cached and pending tag names, preserving order and deduplicating."""
         cached_tag_names = []
         for tag in cached_contact.get("tags") or []:
@@ -100,7 +100,7 @@ class ContactsSink(CallHubSink):
                 cached_tag_names.append(tag["name"])
             elif isinstance(tag, str) and tag.strip():
                 cached_tag_names.append(tag.strip())
-        tags_to_apply: List[str] = []
+        tags_to_apply: list[str] = []
         seen_tags: set[str] = set()
         for tag_name in cached_tag_names + pending_tags:
             lowered = tag_name.lower()
@@ -111,7 +111,7 @@ class ContactsSink(CallHubSink):
 
     def upsert_record(self, record: dict, context: dict):
         """Create or update a contact, then apply tags and phonebook membership."""
-        state_dict: Dict[str, Any] = {}
+        state_dict: dict[str, Any] = {}
         contact_id = record.pop("_callhub_id", None)
         cached_before = self._cache.contacts_by_id.get(str(contact_id), {}) if contact_id else {}
         tags_to_apply = self._collect_tags_to_apply(cached_before, self._pending_tags)
@@ -134,12 +134,12 @@ class ContactsSink(CallHubSink):
             state_dict["is_updated"] = True
         return contact_id, response.ok, state_dict
 
-    def resolve_tags(self, contact: Dict[str, Any]) -> None:
+    def resolve_tags(self, contact: dict[str, Any]) -> None:
         """Apply pending tags to a contact, re-applying cached tags cleared by PUT."""
         contact_id = contact.get("id")
         if contact_id is None:
             return
-        tag_ids: List[str] = []
+        tag_ids: list[str] = []
         for tag_name in self._pending_tags:
             tag = self.get_or_create_tag(tag_name)
             tag_id = tag.get("id")
@@ -158,8 +158,8 @@ class ContactsSink(CallHubSink):
 
     def resolve_phonebooks(
         self,
-        contact: Dict[str, Any],
-        cached_before: Optional[Dict[str, Any]] = None,
+        contact: dict[str, Any],
+        cached_before: dict[str, Any] | None = None,
     ) -> None:
         """Add or remove phonebook membership based on parsed list entries."""
         contact_id = contact.get("id")

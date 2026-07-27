@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def custom_field_definitions_by_name(
-    definitions: List[Dict[str, Any]],
-) -> Dict[str, Dict[str, Any]]:
+    definitions: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
     """Index custom field definitions by name, keeping the first occurrence."""
-    by_name: Dict[str, Dict[str, Any]] = {}
+    by_name: dict[str, dict[str, Any]] = {}
     for definition in definitions:
         name = definition.get("name")
         if name and name not in by_name:
@@ -19,9 +19,9 @@ def custom_field_definitions_by_name(
 
 
 def custom_field_values_by_name(
-    contact: Dict[str, Any],
-    definitions_by_name: Dict[str, Dict[str, Any]],
-) -> Dict[str, Any]:
+    contact: dict[str, Any],
+    definitions_by_name: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
     """Return custom field values from a contact payload keyed by field name."""
     raw = contact.get("custom_fields")
     if not raw:
@@ -36,7 +36,7 @@ def custom_field_values_by_name(
     else:
         return {}
 
-    id_to_name: Dict[str, str] = {}
+    id_to_name: dict[str, str] = {}
     seen_ids: set[str] = set()
     for definition in definitions_by_name.values():
         field_id = definition.get("id")
@@ -50,7 +50,7 @@ def custom_field_values_by_name(
         if name:
             id_to_name[field_id_str] = name
 
-    by_name: Dict[str, Any] = {}
+    by_name: dict[str, Any] = {}
     for field_id, value in values_by_id.items():
         name = id_to_name.get(str(field_id))
         if name is not None:
@@ -86,7 +86,7 @@ def _coerce_boolean_value(value: Any) -> Any:
     return value
 
 
-def coerce_custom_field_value(value: Any, field_type: Optional[str]) -> Any:
+def coerce_custom_field_value(value: Any, field_type: str | None) -> Any:
     """Coerce a value to the type expected by a CallHub custom field definition."""
     normalized_type = (field_type or "text").lower()
     if value is None or value == "":
